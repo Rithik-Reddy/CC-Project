@@ -1,0 +1,45 @@
+from flask import Flask, request, render_template
+from google.cloud import language_v1
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    try:
+        text = request.form['text']
+        score, magnitude = analyze_sentiment(text)
+        sentiment_label = interpret_sentiment(score)
+        magnitude_label = interpret_magnitude(magnitude)
+        return render_template('result.html', sentiment_score=sentiment_label, sentiment_magnitude=magnitude_label)
+    except Exception as e:
+        return f'Error analyzing sentiment: {str(e)}'
+
+def analyze_sentiment(text):
+    client = language_v1.LanguageServiceClient()
+    document = {"content": text, "type": language_v1.Document.Type.PLAIN_TEXT}
+    response = client.analyze_sentiment(request={'document': document})
+    sentiment = response.document_sentiment
+    return sentiment.score, sentiment.magnitude
+
+def interpret_sentiment(score):
+    if score < -0.25:
+        return 'Negative'
+    elif score > 0.25:
+        return 'Positive'
+    else:
+        return 'Neutral'
+
+def interpret_magnitude(magnitude):
+    if magnitude < 0.5:
+        return 'Low'
+    elif magnitude < 1.5:
+        return 'Medium'
+    else:
+        return 'High'
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0',port='8081')
